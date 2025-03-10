@@ -1,0 +1,45 @@
+// Export all platform-specific implementations
+export 'platform_adapter.dart';
+
+// Re-export platform-specific files
+import 'dart:io' show Platform;
+
+// Import platform-specific classes
+import 'platform_adapter.dart';
+
+/// Get the appropriate platform setup
+PythonPlatformSetup getPlatformSetup() {
+  return PythonPlatformFactory.create();
+}
+
+/// Check if the current platform is supported
+bool isPlatformSupported() {
+  return Platform.isMacOS || Platform.isWindows || Platform.isLinux;
+}
+
+/// Get installation instructions for the current platform
+String getPlatformInstructions() {
+  if (Platform.isMacOS) {
+    return '''
+macOS Platform Setup:
+
+1. Ensure your app has the necessary entitlements:
+   - com.apple.security.app-sandbox
+   - com.apple.security.cs.allow-jit
+   - com.apple.security.network.client
+   - com.apple.security.network.server
+   - com.apple.security.files.user-selected.read-write
+   - com.apple.security.files.downloads.read-only
+
+2. Use the Podfile template provided by flutterpy
+
+3. Make sure Python 3.11 is installed on your development machine
+''';
+  } else if (Platform.isWindows) {
+    return 'Windows platform support is coming soon.';
+  } else if (Platform.isLinux) {
+    return 'Linux platform support is coming soon.';
+  } else {
+    return 'Your platform is not supported by flutterpy.';
+  }
+} 

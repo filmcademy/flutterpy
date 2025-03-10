@@ -1,7 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutterpy/flutterpy.dart';
+import 'dart:convert';
 
-void main() {
+void main() async {
+  // Ensure Flutter is initialized
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Python
+  try {
+    final result = await initializePython();
+    print('Python initialized: $result');
+  } catch (e) {
+    print('Failed to initialize Python: $e');
+  }
+  
+  // Run the app
   runApp(const MyApp());
 }
 
@@ -47,25 +60,28 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _initializePython() async {
     setState(() {
       _isInitializing = true;
-      _output = 'Initializing Python $_pythonVersion...\n';
+      _output = 'Initializing Python $_pythonVersion...';
     });
 
     try {
-      await initializePython(
+      final result = await initializePython(
         pythonVersion: _pythonVersion,
         forceDownload: _forceDownload,
       );
-
-      final envPath = getPythonEnvPath();
+      
+      final libPath = await getPythonLibraryPath();
       setState(() {
-        _isInitialized = true;
+        _isInitialized = result;
         _isInitializing = false;
-        _output += 'Python environment initialized at: $envPath\n';
+        _output = 'Python initialized: $result';
+        if (libPath != null) {
+          _output += '\nPython library path: $libPath';
+        }
       });
     } catch (e) {
       setState(() {
         _isInitializing = false;
-        _output += 'Error: $e\n';
+        _output = 'Error: $e';
       });
     }
   }
@@ -73,7 +89,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _executeCode() async {
     if (!_isInitialized) {
       setState(() {
-        _output += 'Please initialize Python first.\n';
+        _output = 'Please initialize Python first.';
       });
       return;
     }
@@ -81,23 +97,30 @@ class _MyHomePageState extends State<MyHomePage> {
     final code = _codeController.text;
     if (code.isEmpty) {
       setState(() {
-        _output += 'Please enter some Python code.\n';
+        _output = 'Please enter some Python code.';
       });
       return;
     }
 
-    setState(() {
-      _output += 'Executing: $code\n';
-    });
-
     try {
       final result = await "".py(code);
       setState(() {
-        _output += 'Result: $result\n';
+        // Only show the result, not the execution log
+        if (result != null) {
+          if (result is Map || result is List) {
+            // Use JsonEncoder for pretty printing complex objects
+            final encoder = JsonEncoder.withIndent('  ');
+            _output = encoder.convert(result);
+          } else {
+            _output = result.toString();
+          }
+        } else {
+          _output = 'null';
+        }
       });
     } catch (e) {
       setState(() {
-        _output += 'Error: $e\n';
+        _output = 'Error: $e';
       });
     }
   }
@@ -105,23 +128,23 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<void> _installPackage(String packageName) async {
     if (!_isInitialized) {
       setState(() {
-        _output += 'Please initialize Python first.\n';
+        _output = 'Please initialize Python first.';
       });
       return;
     }
 
     setState(() {
-      _output += 'Installing package: $packageName\n';
+      _output = 'Installing package: $packageName';
     });
 
     try {
       await "".pyInstall(packageName);
       setState(() {
-        _output += 'Package $packageName installed successfully.\n';
+        _output = 'Package $packageName installed successfully.';
       });
     } catch (e) {
       setState(() {
-        _output += 'Error: $e\n';
+        _output = 'Error: $e';
       });
     }
   }
@@ -265,43 +288,9 @@ class _MyHomePageState extends State<MyHomePage> {
                         ),
                       ],
                     ),
+                    const SizedBox(height: 16),
+                    Text(_output),
                   ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Output',
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                      const SizedBox(height: 16),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.all(8.0),
-                          decoration: BoxDecoration(
-                            color: Colors.black,
-                            borderRadius: BorderRadius.circular(8.0),
-                          ),
-                          child: SingleChildScrollView(
-                            child: Text(
-                              _output,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontFamily: 'monospace',
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
               ),
             ),

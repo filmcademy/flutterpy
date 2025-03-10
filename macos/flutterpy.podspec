@@ -16,7 +16,20 @@ A Flutter package that provides seamless integration with Python. FlutterPy auto
   s.source_files     = 'Classes/**/*'
   s.dependency 'FlutterMacOS'
 
-  s.platform = :osx, '10.11'
-  s.pod_target_xcconfig = { 'DEFINES_MODULE' => 'YES' }
+  # Python-specific resources and files
+  s.resource_bundles = {
+    'flutterpy' => ['Resources/**/*']
+  }
+  
+  # Added to ensure proper linkage with Python
+  s.pod_target_xcconfig = { 
+    'DEFINES_MODULE' => 'YES',
+    'FRAMEWORK_SEARCH_PATHS' => '$(inherited) $(CONFIGURATION_BUILD_DIR)',
+    'LD_RUNPATH_SEARCH_PATHS' => '$(inherited) @executable_path/../Frameworks',
+    'OTHER_LDFLAGS' => '$(inherited) -framework "Cocoa"',
+    'MACOSX_DEPLOYMENT_TARGET' => '10.15'
+  }
+
+  s.platform = :osx, '10.15'
   s.swift_version = '5.0'
 end 

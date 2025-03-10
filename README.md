@@ -37,6 +37,76 @@ Then run:
 flutter pub get
 ```
 
+### Platform Setup
+
+#### macOS Setup
+
+FlutterPy offers two approaches for macOS:
+
+### 1. Simple Non-Sandboxed Setup (Recommended for Development)
+
+For macOS applications that don't need to be distributed through the Mac App Store:
+
+```bash
+# Run the setup tool with sandbox disabled (default)
+dart run flutterpy --setup-macos
+```
+
+This will:
+- Create necessary entitlements files with sandbox disabled
+- Create a simplified Podfile without Python bundling
+- Set macOS 10.15 as the minimum deployment target
+- Automatically update all Xcode configuration files
+- Fix project settings to ensure compatibility
+
+Benefits:
+- ✅ Simpler setup
+- ✅ Full file system access
+- ✅ Uses system Python
+- ✅ Smaller app size
+- ✅ Single command setup
+
+Limitations:
+- ❌ Not suitable for Mac App Store distribution
+
+### 2. Sandboxed Setup (for Mac App Store)
+
+For macOS applications that need to be distributed through the Mac App Store:
+
+```bash
+# Run the setup tool with sandbox enabled
+dart run flutterpy --setup-macos --sandbox
+```
+
+This will:
+- Create necessary entitlements files with sandbox enabled
+- Set up Python bundling with your app
+- Configure proper permissions
+- Set macOS 10.15 as the minimum deployment target
+
+After setup, install the pods:
+
+```bash
+cd macos && pod install
+```
+
+In both cases, initialize Python in your app:
+
+```dart
+import 'package:flutterpy/flutterpy.dart';
+
+void main() async {
+  // Ensure Flutter is initialized
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Python
+  await initializePython();
+  
+  // Run the app
+  runApp(MyApp());
+}
+```
+
 ## Usage
 
 ### Basic Usage
@@ -76,29 +146,8 @@ await initializePython(pythonVersion: '3.9', forceDownload: true);
 await initializePython();
 
 // Get the path to the Python environment
-final envPath = getPythonEnvPath();
-print('Python environment is at: $envPath');
-```
-
-### Using Annotations
-
-```dart
-import 'package:flutterpy/flutterpy.dart';
-
-@PyEnabled
-class MyPythonClass {
-  @PyFunction('''
-  import numpy as np
-  return np.mean(arg0)
-  ''')
-  Future<double> calculateMean(List<double> numbers) async {
-    // This method will be implemented in Python
-    throw UnimplementedError();
-  }
-  
-  @PyVar('np.array([1, 2, 3])')
-  List<int> get defaultArray => throw UnimplementedError();
-}
+final envPath = await getPythonLibraryPath();
+print('Python library is at: $envPath');
 ```
 
 ### Working with Python Modules
@@ -123,50 +172,38 @@ void main() async {
 
 ## How It Works
 
-FlutterPy creates a Python virtual environment in your application's directory and manages the installation of Python packages. It uses a combination of process execution and file I/O to communicate between Dart and Python.
+FlutterPy creates a Python virtual environment in your application's directory and manages the installation of Python packages. It uses Foreign Function Interface (FFI) to communicate between Dart and Python.
 
-When you call a Python function from Dart, FlutterPy:
+For macOS apps:
+1. The package adds necessary entitlements to your app
+2. It configures a build script to bundle Python with your app
+3. At runtime, it initializes Python and makes it available to your Flutter app
 
-1. Creates a temporary Python script
-2. Executes the script with the Python interpreter
-3. Captures the output and converts it to Dart types
-4. Returns the result to your Dart code
+## Command-Line Tool
 
-## Limitations
-
-- Python must be installed on the system
-- Performance may be slower than native Dart code
-- Not all Python types can be converted to Dart types
-- Reflection-based annotations may not work on all platforms
-
-## License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-### Command-Line Tool
-
-FlutterPy comes with a command-line tool for initializing Python environments:
+FlutterPy comes with a command-line tool for setting up your Flutter app:
 
 ```bash
 # Install the package globally
 dart pub global activate flutterpy
 
-# Initialize a Python environment with default settings
-flutterpy
+# Set up macOS configuration
+dart run flutterpy --setup-macos
 
-# Initialize a Python environment with a specific version
-flutterpy --python-version 3.9
-
-# Force download Python even if it's installed locally
-flutterpy --force-download
+# Set up macOS with a specific Python version
+dart run flutterpy --setup-macos --python-version 3.9
 
 # Show help
-flutterpy --help
+dart run flutterpy --help
 ```
 
 The CLI tool supports the following options:
 
-- `--python-version`, `-v`: Python version to use (e.g., 3.9, 3.10)
-- `--force-download`, `-f`: Force download Python even if installed locally
-- `--output-dir`, `-o`: Output directory for the Python environment
-- `--help`, `-h`: Show help message 
+- `--setup-macos`: Set up macOS platform configuration
+- `--python-version`, `-v`: Python version to use (e.g., 3.9, 3.11)
+- `--output-dir`, `-o`: Output directory for platform configuration files
+- `--help`, `-h`: Show help message
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details. 

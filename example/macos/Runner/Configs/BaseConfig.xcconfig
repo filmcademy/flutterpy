@@ -1,0 +1,3 @@
+// Base configuration for all configurations
+// Minimum macOS version
+MACOSX_DEPLOYMENT_TARGET = 10.15
