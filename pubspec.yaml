@@ -1,0 +1,56 @@
+name: flutterpy
+description: A Flutter package that provides seamless integration with Python.
+version: 0.1.0
+homepage: https://github.com/yourusername/flutterpy
+
+environment:
+  sdk: ">=2.17.0 <4.0.0"
+  flutter: ">=2.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  path: ^1.8.0
+  ffi: ^2.1.0
+  path_provider: ^2.1.1
+  build: ^2.3.1
+  source_gen: ^1.2.7
+  analyzer: ^5.11.1
+  http: ^1.1.0
+  archive: ^3.3.7
+  args: ^2.4.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^2.0.0
+  build_runner: ^2.3.3
+
+executables:
+  flutterpy: flutterpy
+
+flutter:
+  # This section identifies this Flutter package as a plugin project.
+  # The 'pluginClass' specifies the class (in Java, Kotlin, Swift, Objective-C, etc.)
+  # which should be registered in the plugin registry. This is required for
+  # using method channels.
+  # The Android 'package' specifies package in which the registered class is.
+  # This is required for using method channels on Android.
+  # The 'pluginClass' maps to the class name of the plugin which is used on the
+  # native side.
+  # Classes registered in the plugin registry should extend one of the classes
+  # found in the plugin package.
+  # This is not required for Dart-only plugins.
+  plugin:
+    platforms:
+      android:
+        package: com.example.flutterpy
+        pluginClass: FlutterpyPlugin
+      ios:
+        pluginClass: FlutterpyPlugin
+      macos:
+        pluginClass: FlutterpyPlugin
+      windows:
+        pluginClass: FlutterpyPluginCApi
+      linux:
+        pluginClass: FlutterpyPluginCApi 

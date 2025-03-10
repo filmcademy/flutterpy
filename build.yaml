@@ -1,0 +1,14 @@
+targets:
+  $default:
+    builders:
+      flutterpy|flutterpy_generator:
+        enabled: true
+
+builders:
+  flutterpy_generator:
+    import: "package:flutterpy/src/generator/flutterpy_generator.dart"
+    builder_factories: ["pyEnabledGeneratorBuilder"]
+    build_extensions: {".dart": [".flutterpy.g.part"]}
+    auto_apply: dependents
+    build_to: cache
+    applies_builders: ["source_gen|combining_builder"] 
