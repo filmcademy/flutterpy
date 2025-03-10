@@ -32,7 +32,7 @@ void main(List<String> args) async {
     } else if (results['setup-windows'] as bool) {
       print('Windows setup is not yet implemented.');
     } else if (results['setup-linux'] as bool) {
-      print('Linux setup is not yet implemented.');
+      await _setupLinux(outputDir, pythonVersion);
     } else {
       _printUsage(parser);
     }
@@ -261,6 +261,100 @@ MACOSX_DEPLOYMENT_TARGET = 10.15
     print('- Your app must request explicit permissions for file access');
     print('- The Podfile uses macOS 10.15 as the minimum deployment target');
   }
+}
+
+/// Set up Linux platform configuration
+Future<void> _setupLinux(String outputDir, String pythonVersion) async {
+  print('Setting up Linux platform configuration...');
+  
+  // Get the package path
+  final packagePath = _getPackagePath();
+  if (packagePath == null) {
+    print('Error: Could not find FlutterPy package.');
+    exit(1);
+  }
+  
+  // Create directories
+  final linuxDir = Directory(path.join(outputDir, 'linux'));
+  if (!linuxDir.existsSync()) {
+    print('Error: Linux directory not found at ${linuxDir.path}');
+    print('Please run this command from your Flutter project root or specify the output directory.');
+    exit(1);
+  }
+  
+  // Step 1: Check if Python is installed
+  try {
+    final pythonResult = await Process.run('python3', ['--version']);
+    if (pythonResult.exitCode == 0) {
+      print('✅ Python is installed: ${pythonResult.stdout}');
+    } else {
+      print('⚠️ Python 3 not found. Please install Python 3.8 or later:');
+      print('   - For Debian/Ubuntu: sudo apt-get install python3 python3-pip python3-dev');
+      print('   - For Fedora: sudo dnf install python3 python3-pip python3-devel');
+    }
+  } catch (e) {
+    print('⚠️ Failed to check Python installation: $e');
+    print('   Please install Python 3.8 or later manually.');
+  }
+  
+  // Step 2: Check for required development packages
+  try {
+    final lsResult = await Process.run('ls', ['/usr/include/python3*']);
+    if (lsResult.exitCode == 0 && (lsResult.stdout as String).isNotEmpty) {
+      print('✅ Python development headers found');
+    } else {
+      print('⚠️ Python development headers not found. Please install:');
+      print('   - For Debian/Ubuntu: sudo apt-get install libpython3-dev');
+      print('   - For Fedora/RHEL: sudo dnf install python3-devel');
+    }
+  } catch (e) {
+    print('⚠️ Failed to check Python development headers: $e');
+    print('   Please install Python development headers manually.');
+  }
+  
+  // Step 3: Update CMakeLists.txt to include Python
+  final cmakeListsPath = path.join(linuxDir.path, 'CMakeLists.txt');
+  if (File(cmakeListsPath).existsSync()) {
+    try {
+      String cmakeContent = File(cmakeListsPath).readAsStringSync();
+      
+      // Check if Python is already included
+      if (!cmakeContent.contains('find_package(PythonLibs')) {
+        // Add Python find package after the project declaration
+        cmakeContent = cmakeContent.replaceFirst(
+          'project(runner LANGUAGES CXX)',
+          'project(runner LANGUAGES CXX)\n\n# Find Python package\nfind_package(PythonLibs ${pythonVersion} REQUIRED)'
+        );
+        
+        // Add Python include directories and libraries
+        // Use CMake variables with proper escaping for CMake syntax
+        cmakeContent = cmakeContent.replaceFirst(
+          'target_link_libraries(\${BINARY_NAME} PRIVATE flutter)',
+          'target_link_libraries(\${BINARY_NAME} PRIVATE flutter \${PYTHON_LIBRARIES})'
+        );
+        
+        cmakeContent = cmakeContent.replaceFirst(
+          'target_include_directories(\${BINARY_NAME} PRIVATE',
+          'target_include_directories(\${BINARY_NAME} PRIVATE\n  \${PYTHON_INCLUDE_DIRS}'
+        );
+        
+        File(cmakeListsPath).writeAsStringSync(cmakeContent);
+        print('✅ Updated CMakeLists.txt to include Python');
+      } else {
+        print('ℹ️ CMakeLists.txt already includes Python');
+      }
+    } catch (e) {
+      print('⚠️ Failed to update CMakeLists.txt: $e');
+    }
+  } else {
+    print('⚠️ CMakeLists.txt not found at $cmakeListsPath');
+  }
+  
+  print('\n🎉 Linux setup complete!');
+  print('\nNext steps:');
+  print('1. Make sure Python ${pythonVersion} is installed on your system');
+  print('2. Install required Python development packages');
+  print('3. Run "flutter build linux" to build your application');
 }
 
 String? _getPackagePath() {

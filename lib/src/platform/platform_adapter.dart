@@ -3,6 +3,7 @@ import 'dart:async';
 
 // Import platform-specific implementations
 import 'macos_setup.dart' as macos;
+import 'linux_setup.dart' as linux;
 
 /// Interface for platform-specific Python setup
 abstract class PythonPlatformSetup {
@@ -126,7 +127,7 @@ class WindowsPythonSetup implements PythonPlatformSetup {
   }
 }
 
-/// Linux implementation (placeholder)
+/// Linux implementation
 class LinuxPythonSetup implements PythonPlatformSetup {
   @override
   Future<bool> initialize({
@@ -134,33 +135,36 @@ class LinuxPythonSetup implements PythonPlatformSetup {
     bool forceDownload = false,
     Map<String, String>? environmentVariables,
   }) async {
-    // Linux-specific initialization
-    return Future.value(false);
+    // Use the Linux-specific implementation
+    return linux.LinuxPythonSetup.setupPython(force: forceDownload);
   }
   
   @override
   Future<void> dispose() async {
-    // Cleanup resources
+    // Nothing to do for Linux
   }
   
   @override
   Future<String?> getPythonLibraryPath() async {
-    // Return the path to the Python dynamic library
-    return null;
+    // Use the Linux-specific implementation
+    return linux.LinuxPythonSetup.getPythonLibraryPath();
   }
   
   @override
   Future<bool> isPythonSetup() async {
-    return Future.value(false);
+    // Use the Linux-specific implementation
+    return linux.LinuxPythonSetup.hasRequiredPermissions();
   }
   
   @override
   Future<dynamic> executePythonCode(String code) async {
-    throw UnimplementedError('Linux Python execution not implemented yet');
+    // Use the Linux-specific implementation
+    return linux.LinuxPythonSetup.executePythonCode(code);
   }
   
   @override
   Future<void> installPackage(String packageName) async {
-    throw UnimplementedError('Linux package installation not implemented yet');
+    // Use the Linux-specific implementation
+    return linux.LinuxPythonSetup.installPackage(packageName);
   }
 } 
