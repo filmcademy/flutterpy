@@ -12,6 +12,7 @@ abstract class PythonPlatformSetup {
     String? pythonVersion,
     bool forceDownload = false,
     Map<String, String>? environmentVariables,
+    String? customEnvPath,
   });
   
   /// Clean up resources
@@ -53,9 +54,13 @@ class MacOSPythonSetup implements PythonPlatformSetup {
     String? pythonVersion,
     bool forceDownload = false,
     Map<String, String>? environmentVariables,
+    String? customEnvPath,
   }) async {
     // Use the macOS-specific implementation
-    return macos.MacOSPythonSetup.setupPython(force: forceDownload);
+    return macos.MacOSPythonSetup.setupPython(
+      force: forceDownload,
+      customEnvPath: customEnvPath,
+    );
   }
   
   @override
@@ -95,6 +100,7 @@ class WindowsPythonSetup implements PythonPlatformSetup {
     String? pythonVersion,
     bool forceDownload = false,
     Map<String, String>? environmentVariables,
+    String? customEnvPath,
   }) async {
     // Windows-specific initialization
     return Future.value(false);
@@ -134,9 +140,13 @@ class LinuxPythonSetup implements PythonPlatformSetup {
     String? pythonVersion,
     bool forceDownload = false,
     Map<String, String>? environmentVariables,
+    String? customEnvPath,
   }) async {
     // Use the Linux-specific implementation
-    return linux.LinuxPythonSetup.setupPython(force: forceDownload);
+    return linux.LinuxPythonSetup.setupPython(
+      force: forceDownload,
+      customEnvPath: customEnvPath,
+    );
   }
   
   @override

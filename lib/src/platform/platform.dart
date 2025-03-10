@@ -41,15 +41,17 @@ macOS Platform Setup:
     return '''
 Linux Platform Setup:
 
-1. Make sure Python 3.8 or later is installed on your system:
-   - sudo apt-get install python3 python3-pip python3-dev (for Debian/Ubuntu)
-   - sudo dnf install python3 python3-pip python3-devel (for Fedora)
+1. Run the setup command to configure your project:
+   dart run flutterpy:flutterpy --setup-linux
 
-2. Ensure the following packages are installed:
-   - libpython3-dev (for Debian/Ubuntu)
-   - python3-devel (for Fedora/RHEL)
+2. The setup will:
+   - Check if Python is installed on your system
+   - Configure your project to use system Python if available
+   - Set up embedded Python download during build if system Python is not available
 
-3. Add the following to your pubspec.yaml:
+3. No manual Python installation is required - the package will handle it automatically!
+
+4. Add the following to your pubspec.yaml:
    dependencies:
      flutterpy: ^latest_version
 ''';

@@ -22,21 +22,36 @@ class PythonEnvironment {
   /// 
   /// [pythonVersion] - The Python version to use (e.g., '3.9', '3.10')
   /// [forceDownload] - Whether to force download Python even if it's installed locally
-  Future<void> ensureInitialized({String? pythonVersion, bool forceDownload = false}) async {
+  /// [customEnvPath] - Optional custom path for the virtual environment
+  Future<void> ensureInitialized({
+    String? pythonVersion, 
+    bool forceDownload = false,
+    String? customEnvPath,
+  }) async {
     if (_initialized) return;
     
     if (pythonVersion != null) {
       _pythonVersion = pythonVersion;
     }
     
-    await _setupPythonEnvironment(forceDownload: forceDownload);
+    await _setupPythonEnvironment(
+      forceDownload: forceDownload,
+      customEnvPath: customEnvPath,
+    );
     _initialized = true;
   }
   
   /// Sets up the Python environment
-  Future<void> _setupPythonEnvironment({bool forceDownload = false}) async {
-    final appDir = await _getAppDirectory();
-    _envPath = path.join(appDir.path, 'python_env');
+  Future<void> _setupPythonEnvironment({
+    bool forceDownload = false,
+    String? customEnvPath,
+  }) async {
+    if (customEnvPath != null) {
+      _envPath = customEnvPath;
+    } else {
+      final appDir = await _getAppDirectory();
+      _envPath = path.join(appDir.path, 'python_env');
+    }
     
     // Create the directory if it doesn't exist
     final envDir = Directory(_envPath);

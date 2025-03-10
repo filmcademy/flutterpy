@@ -109,12 +109,14 @@ Future<bool> initializePython({
   String? pythonVersion,
   bool forceDownload = false,
   Map<String, String>? environmentVariables,
+  String? customEnvPath,
 }) async {
   final platformSetup = getPlatformSetup();
   return platformSetup.initialize(
     pythonVersion: pythonVersion,
     forceDownload: forceDownload,
     environmentVariables: environmentVariables,
+    customEnvPath: customEnvPath,
   );
 }
 

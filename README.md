@@ -1,6 +1,6 @@
 # FlutterPy
 
-A Flutter package that provides seamless integration with Python. FlutterPy automatically creates a Python environment and makes Python functions accessible from Dart.
+A Flutter package that provides seamless integration with Python. FlutterPy automatically creates a Python environment and makes Python functions accessible from Dart. (Only for Desktop applications)
 
 ## Features
 
@@ -20,7 +20,7 @@ A Flutter package that provides seamless integration with Python. FlutterPy auto
 ### Prerequisites
 
 - Flutter 2.0.0 or higher
-- Python 3.8 or higher installed on the system (optional - FlutterPy can download Python if not available)
+- Python is not required to be installed on the system, FlutterPy will download and install Python for you if not already installed on the system.
 
 ### Installation
 
@@ -69,7 +69,7 @@ Benefits:
 Limitations:
 - ❌ Not suitable for Mac App Store distribution
 
-### 2. Sandboxed Setup (for Mac App Store)
+### 2. Sandboxed Setup (for Mac App Store) (Currently Unstable)
 
 For macOS applications that need to be distributed through the Mac App Store:
 
@@ -89,6 +89,9 @@ After setup, install the pods:
 ```bash
 cd macos && pod install
 ```
+
+Limitations:
+- ❌ Some pip dependencies might now work
 
 In both cases, initialize Python in your app:
 

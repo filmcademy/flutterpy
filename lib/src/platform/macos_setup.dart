@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
+import 'package:flutterpy/flutterpy.dart';
 
 /// Utility class for setting up Python on macOS
 class MacOSPythonSetup {
@@ -49,7 +50,7 @@ class MacOSPythonSetup {
   }
   
   /// Set up Python environment for macOS
-  static Future<bool> setupPython({bool force = false}) async {
+  static Future<bool> setupPython({bool force = false, String? customEnvPath}) async {
     try {
       if (_pythonInitialized && !force) {
         print('Python already initialized, skipping setup');
@@ -57,6 +58,22 @@ class MacOSPythonSetup {
       }
       
       print('Setting up Python for macOS...');
+      
+      // If a custom environment path is provided, use it
+      if (customEnvPath != null) {
+        // Initialize the Python environment with the custom path
+        final env = PythonEnvironment.instance;
+        await env.ensureInitialized(
+          forceDownload: force,
+          customEnvPath: customEnvPath,
+        );
+        
+        // Get the Python path from the environment
+        _pythonPath = env.pythonPath;
+        print('Using custom Python environment at $customEnvPath');
+        _pythonInitialized = true;
+        return true;
+      }
       
       // For non-sandboxed environments, we only need to find system Python
       final pythonPath = await _findSystemPython();

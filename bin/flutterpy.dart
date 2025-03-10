@@ -283,36 +283,72 @@ Future<void> _setupLinux(String outputDir, String pythonVersion) async {
   }
   
   // Step 1: Check if Python is installed
+  bool pythonInstalled = false;
   try {
     final pythonResult = await Process.run('python3', ['--version']);
     if (pythonResult.exitCode == 0) {
       print('✅ Python is installed: ${pythonResult.stdout}');
+      pythonInstalled = true;
     } else {
-      print('⚠️ Python 3 not found. Please install Python 3.8 or later:');
-      print('   - For Debian/Ubuntu: sudo apt-get install python3 python3-pip python3-dev');
-      print('   - For Fedora: sudo dnf install python3 python3-pip python3-devel');
+      print('⚠️ Python 3 not found. Will set up embedded Python.');
     }
   } catch (e) {
     print('⚠️ Failed to check Python installation: $e');
-    print('   Please install Python 3.8 or later manually.');
+    print('   Will set up embedded Python.');
   }
   
-  // Step 2: Check for required development packages
-  try {
-    final lsResult = await Process.run('ls', ['/usr/include/python3*']);
-    if (lsResult.exitCode == 0 && (lsResult.stdout as String).isNotEmpty) {
-      print('✅ Python development headers found');
-    } else {
-      print('⚠️ Python development headers not found. Please install:');
-      print('   - For Debian/Ubuntu: sudo apt-get install libpython3-dev');
-      print('   - For Fedora/RHEL: sudo dnf install python3-devel');
+  // Step 2: Check for required development packages if system Python is used
+  if (pythonInstalled) {
+    try {
+      final lsResult = await Process.run('ls', ['/usr/include/python3*']);
+      if (lsResult.exitCode == 0 && (lsResult.stdout as String).isNotEmpty) {
+        print('✅ Python development headers found');
+      } else {
+        print('⚠️ Python development headers not found. Please install:');
+        print('   - For Debian/Ubuntu: sudo apt-get install libpython3-dev');
+        print('   - For Fedora/RHEL: sudo dnf install python3-devel');
+        print('   Alternatively, the app will use embedded Python.');
+      }
+    } catch (e) {
+      print('⚠️ Failed to check Python development headers: $e');
+      print('   Will use embedded Python as fallback.');
     }
-  } catch (e) {
-    print('⚠️ Failed to check Python development headers: $e');
-    print('   Please install Python development headers manually.');
   }
   
-  // Step 3: Update CMakeLists.txt to include Python
+  // Step 3: Create a script to download and set up embedded Python
+  final setupScriptPath = path.join(linuxDir.path, 'setup_embedded_python.sh');
+  final setupScriptContent = '''#!/bin/bash
+# Script to download and set up embedded Python for Linux
+# This script will be run during the build process if system Python is not available
+
+set -e
+
+PYTHON_VERSION="$pythonVersion"
+DOWNLOAD_URL="https://github.com/indygreg/python-build-standalone/releases/download/20230116/cpython-\${PYTHON_VERSION}.0-x86_64-unknown-linux-gnu-install_only.tar.gz"
+PYTHON_DIR="\${DESTDIR}/usr/lib/\${BINARY_NAME}/python"
+
+# Create Python directory
+mkdir -p "\${PYTHON_DIR}"
+
+# Download Python
+echo "Downloading Python \${PYTHON_VERSION}..."
+curl -L "\${DOWNLOAD_URL}" -o python.tar.gz
+
+# Extract Python
+echo "Extracting Python..."
+tar -xzf python.tar.gz -C "\${PYTHON_DIR}" --strip-components=1
+
+# Clean up
+rm python.tar.gz
+
+echo "Embedded Python setup complete!"
+''';
+  
+  File(setupScriptPath).writeAsStringSync(setupScriptContent);
+  await Process.run('chmod', ['+x', setupScriptPath]);
+  print('✅ Created embedded Python setup script at $setupScriptPath');
+  
+  // Step 4: Update CMakeLists.txt to include Python and the setup script
   final cmakeListsPath = path.join(linuxDir.path, 'CMakeLists.txt');
   if (File(cmakeListsPath).existsSync()) {
     try {
@@ -323,23 +359,31 @@ Future<void> _setupLinux(String outputDir, String pythonVersion) async {
         // Add Python find package after the project declaration
         cmakeContent = cmakeContent.replaceFirst(
           'project(runner LANGUAGES CXX)',
-          'project(runner LANGUAGES CXX)\n\n# Find Python package\nfind_package(PythonLibs ${pythonVersion} REQUIRED)'
+          'project(runner LANGUAGES CXX)\n\n# Find Python package\nfind_package(PythonLibs ${pythonVersion} REQUIRED QUIET)\n\n# Set up embedded Python if system Python is not available\nif(NOT PYTHONLIBS_FOUND)\n  message(STATUS "System Python not found, will use embedded Python")\n  set(USE_EMBEDDED_PYTHON TRUE)\nelse()\n  set(USE_EMBEDDED_PYTHON FALSE)\nendif()'
         );
         
         // Add Python include directories and libraries
         // Use CMake variables with proper escaping for CMake syntax
         cmakeContent = cmakeContent.replaceFirst(
           'target_link_libraries(\${BINARY_NAME} PRIVATE flutter)',
-          'target_link_libraries(\${BINARY_NAME} PRIVATE flutter \${PYTHON_LIBRARIES})'
+          'if(USE_EMBEDDED_PYTHON)\n  target_link_libraries(\${BINARY_NAME} PRIVATE flutter "\${CMAKE_CURRENT_BINARY_DIR}/python/lib/libpython3.so")\nelse()\n  target_link_libraries(\${BINARY_NAME} PRIVATE flutter \${PYTHON_LIBRARIES})\nendif()'
         );
         
         cmakeContent = cmakeContent.replaceFirst(
           'target_include_directories(\${BINARY_NAME} PRIVATE',
-          'target_include_directories(\${BINARY_NAME} PRIVATE\n  \${PYTHON_INCLUDE_DIRS}'
+          'if(USE_EMBEDDED_PYTHON)\n  target_include_directories(\${BINARY_NAME} PRIVATE\n    "\${CMAKE_CURRENT_BINARY_DIR}/python/include/python${pythonVersion}"\n  )\nelse()\n  target_include_directories(\${BINARY_NAME} PRIVATE\n    \${PYTHON_INCLUDE_DIRS}\n  )\nendif()\n\ntarget_include_directories(\${BINARY_NAME} PRIVATE'
         );
         
+        // Add custom command to set up embedded Python during build
+        if (!cmakeContent.contains('setup_embedded_python.sh')) {
+          cmakeContent = cmakeContent.replaceFirst(
+            'install(FILES "\${FLUTTER_ICU_DATA_FILE}" DESTINATION "\${INSTALL_BUNDLE_DATA_DIR}"',
+            '# Set up embedded Python if needed\nif(USE_EMBEDDED_PYTHON)\n  add_custom_command(\n    TARGET \${BINARY_NAME} POST_BUILD\n    COMMAND \${CMAKE_COMMAND} -E make_directory "\${CMAKE_CURRENT_BINARY_DIR}/python"\n    COMMAND \${CMAKE_CURRENT_SOURCE_DIR}/setup_embedded_python.sh\n    WORKING_DIRECTORY \${CMAKE_CURRENT_BINARY_DIR}\n    COMMENT "Setting up embedded Python..."\n  )\n\n  install(DIRECTORY "\${CMAKE_CURRENT_BINARY_DIR}/python" DESTINATION "\${INSTALL_BUNDLE_LIB_DIR}")\nendif()\n\ninstall(FILES "\${FLUTTER_ICU_DATA_FILE}" DESTINATION "\${INSTALL_BUNDLE_DATA_DIR}"'
+          );
+        }
+        
         File(cmakeListsPath).writeAsStringSync(cmakeContent);
-        print('✅ Updated CMakeLists.txt to include Python');
+        print('✅ Updated CMakeLists.txt to include Python and embedded Python support');
       } else {
         print('ℹ️ CMakeLists.txt already includes Python');
       }
@@ -352,8 +396,8 @@ Future<void> _setupLinux(String outputDir, String pythonVersion) async {
   
   print('\n🎉 Linux setup complete!');
   print('\nNext steps:');
-  print('1. Make sure Python ${pythonVersion} is installed on your system');
-  print('2. Install required Python development packages');
+  print('1. If you have Python ${pythonVersion} installed on your system, it will be used automatically.');
+  print('2. If not, an embedded Python will be downloaded and set up during the build process.');
   print('3. Run "flutter build linux" to build your application');
 }
 
@@ -361,8 +405,7 @@ String? _getPackagePath() {
   // Try to find the package in various locations
   final candidates = [
     path.join('.', 'packages', 'flutterpy'),
-    path.join('.dart_tool', 'pub', 'deps', 'flutterpy'),
-    '/Users/remymenard/code/langflip_monorepo/packages/flutterpy' // Fallback to the known path
+    path.join('.dart_tool', 'pub', 'deps', 'flutterpy')
   ];
   
   for (final candidate in candidates) {
