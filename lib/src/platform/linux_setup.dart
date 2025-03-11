@@ -415,11 +415,21 @@ except Exception as e:
         throw Exception('Python executable not found');
       }
       
+      // First try to install pip if it's not available
+      await _ensurePipIsInstalled(pythonPath);
+      
       // Use pip module directly with the Python executable
       final result = await Process.run(pythonPath, ['-m', 'pip', 'install', packageName]);
       
       if (result.exitCode != 0) {
-        throw Exception('Failed to install package: ${result.stderr}');
+        // If pip module fails, try again after ensuring pip is installed
+        print('Failed to install package with pip module: ${result.stderr}');
+        
+        // Retry package installation
+        final retryResult = await Process.run(pythonPath, ['-m', 'pip', 'install', packageName]);
+        if (retryResult.exitCode != 0) {
+          throw Exception('Failed to install package: ${retryResult.stderr}');
+        }
       }
       
       print('Package $packageName installed successfully');

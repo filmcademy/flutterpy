@@ -219,13 +219,18 @@ class PythonEnvironment {
   /// Creates a virtual environment using the system Python
   Future<void> _createVirtualEnvironment() async {
     try {
-      final result = await Process.run('python3', ['-m', 'venv', _envPath]);
+      // First try with python3
+      var result = await Process.run('python3', ['-m', 'venv', _envPath]);
       if (result.exitCode != 0) {
-        final result2 = await Process.run('python', ['-m', 'venv', _envPath]);
-        if (result2.exitCode != 0) {
-          throw Exception('Failed to create virtual environment: ${result2.stderr}');
+        // Try with python if python3 fails
+        result = await Process.run('python', ['-m', 'venv', _envPath]);
+        if (result.exitCode != 0) {
+          throw Exception('Failed to create virtual environment: ${result.stderr}');
         }
       }
+      
+      // Ensure pip is installed in the virtual environment
+      await _ensurePipInVenv();
     } catch (e) {
       throw Exception('Failed to create virtual environment: $e');
     }
@@ -242,8 +247,54 @@ class PythonEnvironment {
       if (result.exitCode != 0) {
         throw Exception('Failed to create virtual environment with downloaded Python: ${result.stderr}');
       }
+      
+      // Ensure pip is installed in the virtual environment
+      await _ensurePipInVenv();
     } catch (e) {
       throw Exception('Failed to create virtual environment with downloaded Python: $e');
+    }
+  }
+  
+  /// Ensures pip is installed in the virtual environment
+  Future<void> _ensurePipInVenv() async {
+    try {
+      // Set Python paths first so we can use the venv Python
+      await _setPythonPaths();
+      
+      // Check if pip is available
+      final checkResult = await Process.run(_pythonPath, ['-m', 'pip', '--version']);
+      if (checkResult.exitCode == 0) {
+        print('pip is already available in the virtual environment');
+        return;
+      }
+      
+      print('pip not found in virtual environment, installing it...');
+      
+      // Download get-pip.py
+      final getpipUrl = 'https://bootstrap.pypa.io/get-pip.py';
+      final response = await http.get(Uri.parse(getpipUrl));
+      if (response.statusCode != 200) {
+        throw Exception('Failed to download get-pip.py: HTTP ${response.statusCode}');
+      }
+      
+      // Save get-pip.py to a temporary file
+      final tempDir = await Directory.systemTemp.createTemp('flutterpy_');
+      final getpipPath = path.join(tempDir.path, 'get-pip.py');
+      await File(getpipPath).writeAsBytes(response.bodyBytes);
+      
+      // Run get-pip.py with the virtual environment's Python
+      final installResult = await Process.run(_pythonPath, [getpipPath]);
+      
+      // Clean up
+      await tempDir.delete(recursive: true);
+      
+      if (installResult.exitCode != 0) {
+        throw Exception('Failed to install pip: ${installResult.stderr}');
+      }
+      
+      print('pip installed successfully in the virtual environment');
+    } catch (e) {
+      throw Exception('Failed to ensure pip in virtual environment: $e');
     }
   }
   
@@ -271,12 +322,29 @@ class PythonEnvironment {
   /// Runs pip with the given arguments
   Future<void> _runPip(List<String> args) async {
     try {
+      // First try using pip directly
       final result = await Process.run(_pipPath, args);
       if (result.exitCode != 0) {
-        throw Exception('Pip command failed: ${result.stderr}');
+        print('Direct pip execution failed, trying via Python module: ${result.stderr}');
+        
+        // If direct pip fails, try using python -m pip
+        final modulePipResult = await Process.run(_pythonPath, ['-m', 'pip', ...args]);
+        if (modulePipResult.exitCode != 0) {
+          throw Exception('Pip command failed: ${modulePipResult.stderr}');
+        }
       }
     } catch (e) {
-      throw Exception('Pip command failed: $e');
+      // If the first approach throws an exception (e.g., pip executable not found),
+      // try using python -m pip
+      try {
+        print('Pip execution failed, trying via Python module: $e');
+        final modulePipResult = await Process.run(_pythonPath, ['-m', 'pip', ...args]);
+        if (modulePipResult.exitCode != 0) {
+          throw Exception('Pip command failed: ${modulePipResult.stderr}');
+        }
+      } catch (e2) {
+        throw Exception('Pip command failed with both methods: $e2');
+      }
     }
   }
   
