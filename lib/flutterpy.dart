@@ -51,6 +51,18 @@ extension FlutterPy on Object {
     return py(pythonCode);
   }
   
+  /// Loads and executes a Python file
+  /// 
+  /// Example:
+  /// ```dart
+  /// final result = await myObject.pyFile('/path/to/script.py', functionName: 'my_function', args: [1, 2, 3]);
+  /// ```
+  Future<dynamic> pyFile(String filePath, {String? functionName, List<dynamic>? args}) async {
+    final bridge = PythonBridge.instance;
+    await bridge.ensureInitialized();
+    return bridge.loadPythonFile(filePath, functionName: functionName, args: args);
+  }
+  
   /// Imports a Python module and makes it available for use
   /// 
   /// Example:
@@ -77,6 +89,47 @@ extension FlutterPy on Object {
     } catch (e) {
       print('Error installing Python package: $e');
       rethrow;
+    }
+  }
+  
+  /// Installs Python packages from a requirements.txt file
+  /// 
+  /// Example:
+  /// ```dart
+  /// await myObject.pyInstallRequirements('/path/to/requirements.txt');
+  /// ```
+  Future<void> pyInstallRequirements(String requirementsFilePath) async {
+    final bridge = PythonBridge.instance;
+    await bridge.ensureInitialized();
+    
+    // Check if the file exists
+    final file = File(requirementsFilePath);
+    if (!await file.exists()) {
+      throw FileSystemException('Requirements file not found', requirementsFilePath);
+    }
+    
+    // Use pip to install packages from the requirements file
+    final env = PythonEnvironment.instance;
+    final result = await env.executePythonScript('''
+import subprocess
+import sys
+
+try:
+    subprocess.check_call([sys.executable, '-m', 'pip', 'install', '-r', '$requirementsFilePath'])
+    print('{"result": "success"}')
+except Exception as e:
+    print('{"error": {"type": "InstallError", "message": str(e), "traceback": ""}}')
+''');
+    
+    if (result.exitCode != 0) {
+      throw Exception('Failed to install requirements: ${result.stderr}');
+    }
+    
+    final output = result.stdout.toString().trim();
+    if (output.contains('"error"')) {
+      final jsonResult = json.decode(output);
+      final error = jsonResult['error'];
+      throw Exception('Failed to install requirements: ${error['message']}');
     }
   }
   
